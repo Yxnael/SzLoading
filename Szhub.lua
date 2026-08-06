@@ -1,4 +1,4 @@
--- ===== SP HUB LOADER (ORIGINAL) + SZDUNIS/MM2 v1.3.1 =====
+-- ===== SP HUB LOADER (ORIGINAL) + SZDUNIS/MM2 v1.3.1 [MM2-ONLY FIXED] =====
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -13,51 +13,41 @@ local Camera = Workspace.CurrentCamera
 local LP = Players.LocalPlayer
 local PlayerGui = LP:WaitForChild("PlayerGui")
 
-if getgenv().SZDUN then return end
+-- Guard com RESET (nao trava mais em execucoes repetidas)
+if getgenv().SZDUN then
+    pcall(function()
+        if getgenv().SZDUN_GUI then getgenv().SZDUN_GUI:Destroy() end
+        local lg = CoreGui:FindFirstChild("Loading SP Hub")
+        if lg then lg:Destroy() end
+    end)
+    getgenv().SZDUN = nil
+end
 getgenv().SZDUN = true
 
--- ================= DETECCAO DE JOGO =================
-local Games = {
-    PlaceIds = {
-        [97598239454123] = { Name = "Grow a Garden 2 v1.1", Script = "GrowAGarden2Source" },
-        [4924922222]    = { Name = "Brookhaven v1.6",     Script = "BrookhavenSource" },
-        [136801880565837] = { Name = "Flick v1",          Script = "FlickSource" }
-    },
-    GameIds = {
-        [6161049307] = { Name = "Pixel Blade v1.1",       Script = "PixelBladeSource" },
-        [66654135]   = { Name = "Murder Mystery 2 v1.3",  Script = "MurderMystery2Source" },
-        [4777817887] = { Name = "Blade Ball v1.3",        Script = "BladeBallSource" },
-        [1119466531] = { Name = "Legends Of Speed v1.3",  Script = "LegendOfSpeedSource" }
-    }
-}
-local placeId = game.PlaceId
-local CurrentGame = Games.PlaceIds[placeId]
-if not CurrentGame then CurrentGame = Games.GameIds[game.GameId] end
-local isSupported = CurrentGame ~= nil
-local IS_MM2 = (placeId == 142823291) or (game.GameId == 66654135)
+-- ================= DETECCAO SO MM2 =================
+local IS_MM2 = (game.PlaceId == 142823291) or (tostring(game.GameId) == "66654135")
 
--- ================= IDIOMAS + PERSISTENCIA (ORIGINAL SP HUB) =================
+-- ================= IDIOMAS + PERSISTENCIA =================
 local Languages = {
-    { Code = "en", Name = "English", Display = "🇺🇸 English" },
-    { Code = "ar", Name = "Arabic", Display = "🇸🇦 العربية" },
-    { Code = "es", Name = "Española", Display = "🇪🇸 Española" },
-    { Code = "tr", Name = "Turkey", Display = "🇹🇷 Türkçe" },
-    { Code = "ru", Name = "Russian", Display = "🇷🇺 Русский" },
-    { Code = "fr", Name = "France", Display = "🇫🇷 Français" },
-    { Code = "de", Name = "Germany", Display = "🇩🇪 Deutsch" },
-    { Code = "pt", Name = "Brazil", Display = "🇧🇷 Português" }
+    { Code = "en", Name = "English",  Display = "EN  English" },
+    { Code = "pt", Name = "Brazil",   Display = "PT  Portugues" },
+    { Code = "es", Name = "Espanola", Display = "ES  Espanola" },
+    { Code = "ar", Name = "Arabic",   Display = "AR  Arabic" },
+    { Code = "ru", Name = "Russian",  Display = "RU  Russian" },
+    { Code = "fr", Name = "France",   Display = "FR  Francais" },
+    { Code = "de", Name = "Germany",  Display = "DE  Deutsch" },
+    { Code = "tr", Name = "Turkey",   Display = "TR  Turkce" }
 }
 local SkipTranslations = {
-    en = "Skip", ar = "تخطي", es = "Omitir", tr = "Geç",
-    ru = "Пропустить", fr = "Passer", de = "Überspringen", pt = "Pular"
+    en = "Skip", ar = "Skip", es = "Omitir", tr = "Gec",
+    ru = "Skip", fr = "Passer", de = "Uberspringen", pt = "Pular"
 }
 local CheckBoxTranslations = {
-    en = "Don't show this again", ar = "عدم إظهار هذه القائمة مجدداً", es = "No volver a mostrar",
-    tr = "Bunu tekrar gösterme", ru = "Больше не показывать", fr = "Ne plus afficher",
-    de = "Nicht mehr anzeigen", pt = "Não mostrar novamente"
+    en = "Don't show this again", ar = "Don't show again", es = "No mostrar de nuevo",
+    tr = "Tekrar gosterme", ru = "Ne pokazyvat snova", fr = "Ne plus afficher",
+    de = "Nicht mehr anzeigen", pt = "Nao mostrar novamente"
 }
 
--- Funcoes originais de persistencia
 local function saveLanguageSetting(value)
     pcall(function()
         local json = {}
@@ -77,10 +67,8 @@ local function getSavedLanguageCode()
             local json = HttpService:JSONDecode(data)
             local savedName = json and json["LanguageSetting"]
             if savedName then
-                local Codes = {
-                    English = "en", Arabic = "ar", ["Española"] = "es", Turkey = "tr",
-                    Russian = "ru", France = "fr", Germany = "de", Brazil = "pt"
-                }
+                local Codes = { English="en", Brazil="pt", Espanola="es", Arabic="ar",
+                    Russian="ru", France="fr", Germany="de", Turkey="tr" }
                 code = Codes[savedName] or "en"
             end
         end
@@ -102,15 +90,13 @@ local function getSavedDontShowSetting()
         local ok, data = pcall(readfile, "dropdowns.json")
         if ok and data then
             local json = HttpService:JSONDecode(data)
-            if json and json["DontShowLanguageMenu"] ~= nil then
-                dontShow = json["DontShowLanguageMenu"]
-            end
+            if json and json["DontShowLanguageMenu"] ~= nil then dontShow = json["DontShowLanguageMenu"] end
         end
     end)
     return dontShow
 end
 
--- Traducoes das features MM2
+-- Traducoes das features
 local MM2T = {
     ["en"] = {
         Tabs={"Mov","Vis","Aim","Farm","Tools"},
@@ -125,17 +111,17 @@ local MM2T = {
     ["pt"] = {
         Tabs={"Mov","Vis","Aim","Farm","Ferr"},
         Sp="Velocidade", Fl="Voar", Nc="Noclip",
-        EspR="ESP Papéis", EspG="ESP Arma", Xr="Xray",
+        EspR="ESP Papeis", EspG="ESP Arma", Xr="Xray",
         Sa="Silent Aim", At="Tiro Auto", Kill="Kill Aura",
         Cf="Farm de Moedas", Ag="Arma Auto", Afk="Anti AFK", Ac="Auto Click",
         Em="Emotes", Ul="Descarregar (Fechar Tudo)",
         Loaded="Carregado | v1.3.1 | RightShift = janela",
-        Unloaded="Script descarregado", Unsupported="Jogo não suportado"
+        Unloaded="Script descarregado", Unsupported="Jogo nao suportado"
     }
 }
 local function T(k) return (MM2T[getSavedLanguageCode()] or MM2T.en)[k] or MM2T.en[k] end
 
--- ================= LOADING SCREEN (ORIGINAL) =================
+-- ================= LOADING SCREEN =================
 local oldUI = PlayerGui:FindFirstChild("Loading SP Hub") or CoreGui:FindFirstChild("Loading SP Hub")
 if oldUI then oldUI:Destroy() end
 
@@ -174,7 +160,7 @@ local UIAspectRatioConstraint = Instance.new("UIAspectRatioConstraint", MainFram
 
 local SPHub = mk("SP Hub", MainFrame, "TextLabel")
 SPHub.BackgroundTransparency = 1; SPHub.Position = UDim2.new(0.1,0,0.08,0); SPHub.Size = UDim2.new(0.8,0,0.22,0)
-SPHub.Font = Enum.Font.FredokaOne; SPHub.Text = "SP Hub"; SPHub.TextColor3 = Color3.new(1,1,1); SPHub.TextScaled = true; SPHub.ZIndex = 2
+SPHub.Font = Enum.Font.FredokaOne; SPHub.Text = "SP Hub"; SPHub.TextColor3 = Color3.fromRGB(255,255,255); SPHub.TextScaled = true; SPHub.ZIndex = 2
 local SPHubGlow = mk("UnderGlow", SPHub)
 SPHubGlow.BackgroundColor3 = Color3.fromRGB(255,60,60); SPHubGlow.BorderSizePixel = 0
 SPHubGlow.Position = UDim2.new(0.4,0,1.05,0); SPHubGlow.Size = UDim2.new(0.2,0,0,2)
@@ -182,12 +168,12 @@ SPHubGlow.Position = UDim2.new(0.4,0,1.05,0); SPHubGlow.Size = UDim2.new(0.2,0,0
 local GameNameLabel = mk("GameNameLabel", MainFrame, "TextLabel")
 GameNameLabel.BackgroundTransparency = 1; GameNameLabel.Position = UDim2.new(0.1,0,0.32,0); GameNameLabel.Size = UDim2.new(0.8,0,0.16,0)
 GameNameLabel.Font = Enum.Font.FredokaOne
-GameNameLabel.Text = isSupported and CurrentGame.Name or (T("Unsupported") .. " | " .. tostring(placeId))
+GameNameLabel.Text = IS_MM2 and "Murder Mystery 2 v1.3" or (T("Unsupported") .. " | " .. tostring(game.PlaceId))
 GameNameLabel.TextColor3 = Color3.fromRGB(160,160,160); GameNameLabel.TextScaled = true
 
 local ExitButton = mk("ExitButton", MainFrame, "TextButton")
 ExitButton.BackgroundColor3 = Color3.fromRGB(255,60,60); ExitButton.Position = UDim2.new(0.88,0,0.06,0); ExitButton.Size = UDim2.new(0.08,0,0.12,0)
-ExitButton.Font = Enum.Font.SourceSansBold; ExitButton.Text = "X"; ExitButton.TextColor3 = Color3.new(1,1,1); ExitButton.TextScaled = true; ExitButton.ZIndex = 3
+ExitButton.Font = Enum.Font.SourceSansBold; ExitButton.Text = "X"; ExitButton.TextColor3 = Color3.fromRGB(255,255,255); ExitButton.TextScaled = true; ExitButton.ZIndex = 3
 Instance.new("UICorner", ExitButton).CornerRadius = UDim.new(1,0)
 local ExitRatio = Instance.new("UIAspectRatioConstraint", ExitButton); ExitRatio.AspectRatio = 1
 ExitButton.MouseEnter:Connect(function()
@@ -198,7 +184,6 @@ ExitButton.MouseLeave:Connect(function()
 end)
 ExitButton.MouseButton1Click:Connect(function() LoadingGui:Destroy() end)
 
--- applyHoverEffect ORIGINAL (com efeito no UIStroke)
 local function applyHoverEffect(button, defaultColor, hoverColor)
     button.MouseEnter:Connect(function()
         TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -222,7 +207,6 @@ local function applyHoverEffect(button, defaultColor, hoverColor)
     end)
 end
 
--- makeDraggable ORIGINAL
 local function makeDraggable(frame, handle)
     local dragging = false
     local dragInput, dragStart, startPos
@@ -257,27 +241,21 @@ end
 local SkipButton = nil
 local CheckBoxText = nil
 local function updateUIText(langCode)
-    local isArabic = (langCode == "ar")
-    if isArabic then
-        SPHub.Text = "اختر اللغة"
-        GameNameLabel.Text = "اللغة الحالية: العربية"
-    else
-        local langMap = { en="English", es="Española", tr="Türkçe", ru="Русский", fr="Français", de="Deutsch", pt="Português" }
-        local currentName = langMap[langCode] or "English"
-        SPHub.Text = "Select Language"
-        GameNameLabel.Text = "Current Language: " .. currentName
-    end
-    if SkipButton then SkipButton.Text = SkipTranslations[langCode] or "Skip / تخطي" end
+    local langMap = { en="English", es="Espanola", tr="Turkce", ru="Russian", fr="Francais", de="Deutsch", pt="Portugues" }
+    local currentName = langMap[langCode] or "English"
+    SPHub.Text = "Select Language"
+    GameNameLabel.Text = "Current Language: " .. currentName
+    if SkipButton then SkipButton.Text = SkipTranslations[langCode] or "Skip" end
     if CheckBoxText then CheckBoxText.Text = CheckBoxTranslations[langCode] or "Don't show this again" end
 end
 
-local launchMM2  -- definido na secao MM2
+local launchMM2
 
--- ================= MENU (ORIGINAL, so que chama launchMM2) =================
-if isSupported and IS_MM2 then
+-- ================= MENU =================
+if IS_MM2 then
     local PlayButton = mk("PlayButton", MainFrame, "TextButton")
     PlayButton.Position = UDim2.new(0.3,0,0.62,0); PlayButton.Size = UDim2.new(0.4,0,0.22,0)
-    PlayButton.Font = Enum.Font.SourceSansBold; PlayButton.Text = "Play"; PlayButton.TextColor3 = Color3.new(1,1,1); PlayButton.TextScaled = true
+    PlayButton.Font = Enum.Font.SourceSansBold; PlayButton.Text = "Play"; PlayButton.TextColor3 = Color3.fromRGB(255,255,255); PlayButton.TextScaled = true
     PlayButton.BackgroundColor3 = Color3.fromRGB(30,30,30)
     Instance.new("UICorner", PlayButton).CornerRadius = UDim.new(0,12)
     local UIStroke_Play = Instance.new("UIStroke", PlayButton); UIStroke_Play.Thickness = 1.5; UIStroke_Play.Color = Color3.fromRGB(60,60,60)
@@ -302,7 +280,7 @@ if isSupported and IS_MM2 then
     TriggerButton.BackgroundTransparency = 1; TriggerButton.Size = UDim2.new(1,0,1,0); TriggerButton.Text = ""; TriggerButton.ZIndex = 4
     TriggerButton.MouseButton1Click:Connect(function()
         dontShowAgain = not dontShowAgain
-        CheckMark.Text = dontShowAgain and "✓" or ""
+        CheckMark.Text = dontShowAgain and "V" or ""
         TweenService:Create(CheckBoxStroke, TweenInfo.new(0.2), { Color = dontShowAgain and Color3.fromRGB(255,60,60) or Color3.fromRGB(60,60,60) }):Play()
     end)
 
@@ -329,7 +307,7 @@ if isSupported and IS_MM2 then
 
     for _, lang in ipairs(Languages) do
         local btn = mk(lang.Name .. "Button", ButtonsFrame, "TextButton")
-        btn.BackgroundColor3 = Color3.fromRGB(30,30,30); btn.Text = lang.Display; btn.TextColor3 = Color3.new(1,1,1); btn.TextScaled = true; btn.Font = Enum.Font.SourceSansBold
+        btn.BackgroundColor3 = Color3.fromRGB(30,30,30); btn.Text = lang.Display; btn.TextColor3 = Color3.fromRGB(255,255,255); btn.TextScaled = true; btn.Font = Enum.Font.SourceSansBold
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0,10)
         local btnStroke = Instance.new("UIStroke", btn); btnStroke.Thickness = 1.5; btnStroke.Color = Color3.fromRGB(60,60,60)
         applyHoverEffect(btn, Color3.fromRGB(30,30,30), Color3.fromRGB(45,45,45))
@@ -364,18 +342,10 @@ if isSupported and IS_MM2 then
         ButtonsFrame.Visible = true; DontShowFrame.Visible = true; SkipButton.Visible = true
     end)
 else
-    if isSupported then
-        local Btn = mk("OkBtn", MainFrame, "TextButton")
-        Btn.Position = UDim2.new(0.3,0,0.62,0); Btn.Size = UDim2.new(0.4,0,0.22,0)
-        Btn.Text = "OK"; Btn.TextScaled = true; Btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
-        Instance.new("UICorner", Btn).CornerRadius = UDim.new(0,12)
-        Btn.MouseButton1Click:Connect(function() LoadingGui:Destroy() end)
-    else
-        StarterGui:SetCore("SendNotification", { Title = "SP Hub | MM2", Text = T("Unsupported"), Duration = 3 })
-    end
+    StarterGui:SetCore("SendNotification", { Title = "SP Hub | MM2", Text = T("Unsupported"), Duration = 3 })
 end
 
--- ================= SECAO MM2 (corrigida) =================
+-- ================= SECAO MM2 =================
 local st = { sp=false, fl=false, nc=false, espR=false, espG=false, xr=false, sa=false, at=false, kill=false, cf=false, ag=false, afk=false, ac=false }
 local G, CF, startFarm, stopFarm, unload
 local running = true
@@ -556,7 +526,7 @@ if LP.Character then cacheMyParts(LP.Character) end
 
 -- LOOP PRINCIPAL
 task.spawn(function()
-    local t1, t2, t3, t4 = 0, 0, 0, 0
+    local t2, t3, t4 = 0, 0, 0
     local lastAt, lastAC = 0, 0
     while running do
         local dt = RunService.Heartbeat:Wait()
@@ -764,7 +734,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- CONFIG MM2
+-- CONFIG
 local CFG_FILE = "SzDunamisConfig.json"
 local function saveCfg() pcall(function() writefile(CFG_FILE, HttpService:JSONEncode(st)) end) end
 local function loadCfg()
@@ -801,6 +771,7 @@ launchMM2 = function(langCode)
     G = Instance.new("ScreenGui")
     G.Name = "SZDUN_GUI"; G.ResetOnSpawn = false; G.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     G.Parent = PlayerGui
+    getgenv().SZDUN_GUI = G
     local Pn = mk("Main", G)
     Pn.Position = UDim2.new(.5,0,.5,0); Pn.Size = UDim2.new(0,PW,0,PH)
     Pn.BackgroundColor3 = Color3.fromRGB(13,13,19); Pn.ZIndex = 1
@@ -818,7 +789,7 @@ launchMM2 = function(langCode)
     Instance.new("UICorner", Lg).CornerRadius = UDim.new(1,0)
     local Tt = mk("Title", TB, "TextLabel")
     Tt.Position = UDim2.new(.18,0,.12,0); Tt.Size = UDim2.new(.6,0,.4,0); Tt.BackgroundTransparency = 1
-    Tt.Text = "SP Hub"; Tt.Font = Enum.Font.Michroma; Tt.TextScaled = true; Tt.TextColor3 = Color3.new(1,1,1)
+    Tt.Text = "SP Hub"; Tt.Font = Enum.Font.Michroma; Tt.TextScaled = true; Tt.TextColor3 = Color3.fromRGB(255,255,255)
     local Sub = mk("Sub", TB, "TextLabel")
     Sub.Position = UDim2.new(.18,0,.55,0); Sub.Size = UDim2.new(.6,0,.35,0); Sub.BackgroundTransparency = 1
     Sub.Text = "Murder Mystery 2"; Sub.Font = Enum.Font.GothamBold; Sub.TextScaled = true
@@ -826,7 +797,7 @@ launchMM2 = function(langCode)
     local XBtn = mk("X", TB, "TextButton")
     XBtn.Size = UDim2.fromOffset(30,30); XBtn.AnchorPoint = Vector2.new(1,.5); XBtn.Position = UDim2.new(.97,0,.5,0)
     XBtn.BackgroundColor3 = Color3.fromRGB(255,60,60); XBtn.Text = "X"
-    XBtn.Font = Enum.Font.SourceSansBold; XBtn.TextScaled = true; XBtn.TextColor3 = Color3.new(1,1,1); XBtn.ZIndex = 4
+    XBtn.Font = Enum.Font.SourceSansBold; XBtn.TextScaled = true; XBtn.TextColor3 = Color3.fromRGB(255,255,255); XBtn.ZIndex = 4
     Instance.new("UICorner", XBtn).CornerRadius = UDim.new(1,0)
     XBtn.MouseButton1Click:Connect(function() task.spawn(unload) end)
 
@@ -836,7 +807,7 @@ launchMM2 = function(langCode)
         for j, b in ipairs(TBs) do
             local v = j == i
             TweenService:Create(b, TweenInfo.new(.2), { BackgroundColor3 = v and PUR or ROW }):Play()
-            TweenService:Create(b, TweenInfo.new(.2), { TextColor3 = v and Color3.new(1,1,1) or Color3.fromRGB(190,190,210) }):Play()
+            TweenService:Create(b, TweenInfo.new(.2), { TextColor3 = v and Color3.fromRGB(255,255,255) or Color3.fromRGB(190,190,210) }):Play()
         end
     end
     local TBr = mk("TabBar", Pn)
@@ -874,7 +845,7 @@ launchMM2 = function(langCode)
         Instance.new("UICorner", sw).CornerRadius = UDim.new(1,0)
         local on = mk("ON", sw, "TextLabel")
         on.Size = UDim2.new(1,0,1,0); on.BackgroundTransparency = 1; on.Text = "ON"
-        on.Font = Enum.Font.GothamBold; on.TextScaled = true; on.TextColor3 = Color3.new(1,1,1); on.ZIndex = 4
+        on.Font = Enum.Font.GothamBold; on.TextScaled = true; on.TextColor3 = Color3.fromRGB(255,255,255); on.ZIndex = 4
         local off = mk("OFF", sw, "TextLabel")
         off.Size = UDim2.new(1,0,1,0); off.BackgroundTransparency = 1; off.Text = "OFF"
         off.Font = Enum.Font.GothamBold; off.TextScaled = true; off.TextColor3 = Color3.fromRGB(130,130,150); off.ZIndex = 4
@@ -920,17 +891,6 @@ launchMM2 = function(langCode)
     Mk(Pgs[4], T("Ag"), "ag")
     Mk(Pgs[4], T("Afk"), "afk")
     Mk(Pgs[5], T("Ac"), "ac")
-    MkBtn(Pgs[5], T("Em"), function()
-        Notif("SP Hub | MM2", "Carregando Emotes...")
-        task.spawn(function()
-            local ok, src = pcall(HttpService.GetAsync, HttpService, "https://raw.githubusercontent.com/as6cd0/SP_Hub/main/Animations")
-            if ok and src and #src > 100 then
-                local ok2, fn = pcall(loadstring, src)
-                if ok2 then ok2, fn = pcall(fn) end
-                if not ok2 then Notif("SP Hub | MM2", "Erro: " .. tostring(fn)) end
-            else Notif("SP Hub | MM2", "Falha ao baixar Emotes") end
-        end)
-    end)
     MkBtn(Pgs[5], T("Ul"), function() task.spawn(unload) end)
     for _, pg in ipairs(Pgs) do
         local h = 12
@@ -940,8 +900,8 @@ launchMM2 = function(langCode)
     Show(1)
     local Orb = mk("Orb", G, "TextButton")
     Orb.Size = UDim2.fromOffset(36,36); Orb.AnchorPoint = Vector2.new(.5,.5); Orb.Position = UDim2.new(0,36,1,-46)
-    Orb.BackgroundColor3 = Color3.new(0,0,0); Orb.Text = "sz"; Orb.Font = Enum.Font.Michroma; Orb.TextScaled = true
-    Orb.TextColor3 = Color3.new(1,1,1); Orb.Visible = true; Orb.ZIndex = 5
+    Orb.BackgroundColor3 = Color3.fromRGB(0,0,0); Orb.Text = "sz"; Orb.Font = Enum.Font.Michroma; Orb.TextScaled = true
+    Orb.TextColor3 = Color3.fromRGB(255,255,255); Orb.Visible = true; Orb.ZIndex = 5
     Instance.new("UICorner", Orb).CornerRadius = UDim.new(1,0)
     local OG = mk("OrbGlow", G)
     OG.Size = UDim2.fromOffset(46,46); OG.AnchorPoint = Vector2.new(.5,.5); OG.Position = Orb.Position
@@ -974,7 +934,7 @@ launchMM2 = function(langCode)
     Notif("SP Hub | MM2", T("Loaded"))
 end
 
--- ================= SEQUENCIA DE LOADING (ORIGINAL) =================
+-- ================= SEQUENCIA DE LOADING =================
 local function runLoadingSequence()
     LoadingFrame.Visible = true
     local openTween = TweenService:Create(LoadingFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.new(0.3,0,0.3,0) })
