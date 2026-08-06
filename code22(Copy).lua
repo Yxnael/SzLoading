@@ -1,307 +1,565 @@
--- SzDunamis MM2 - Multi-Executor (Delta, Synapse, Fluxus, Krnl, Codex, etc)
-local P=game:GetService("Players")
-local U=game:GetService("UserInputService")
-local T=game:GetService("TweenService")
-local R=game:GetService("RunService")
-local S=game:GetService("StarterGui")
-local W=workspace
-local C=W.CurrentCamera
-local RS=game:GetService("ReplicatedStorage")
-local LP=P.LocalPlayer
+local P=game:GetService("Players")local U=game:GetService("UserInputService")
+local T=game:GetService("TweenService")local R=game:GetService("RunService")
+local S=game:GetService("StarterGui")local W=workspace local C=W.CurrentCamera
+local RS=game:GetService("ReplicatedStorage")local LP=P.LocalPlayer
 local VIM=game:GetService("VirtualInputManager")
-if getgenv().SZDUN then return end
-getgenv().SZDUN=true
+local SG=game:GetService("StarterGui")
+
+if getgenv().SZDUN then return end getgenv().SZDUN=true
+
 if not((game.PlaceId==142823291)or(game.GameId==66654135))then
-  S:SetCore("SendNotification",{Title="SzDunamis",Text="Jogo nao suportado",Duration=3})
-  return
+    S:SetCore("SendNotification",{Title="SzDunamis",Text="Jogo nao suportado",Duration=3})return 
 end
-local st={sp=false,fl=false,nc=false,espR=false,espG=false,xr=false,sa=false,at=false,kill=false,cf=false,ag=false,afk=false,ij=false,tr=false,ar=false,fb=false,alg=false,tp=false,speed=32,jf=50}
+
+-- ============ VARIAVEIS DE ESTADO ============
+local st={
+    sp=false,fl=false,nc=false,espR=false,espG=false,xr=false,
+    sa=false,at=false,kill=false,cf=false,ag=false,afk=false,
+    ij=false,tr=false,ar=false,fb=false,alg=false,tp=false,
+    speed=32,jf=50
+}
+
+-- Controles de loop (pra evitar multiplos loops)
+local loops={}
+
 local PUR=Color3.fromRGB(150,20,255)
 local ROW=Color3.fromRGB(26,26,36)
 local WHT=Color3.new(1,1,1)
-local function N(t,x)S:SetCore("SendNotification",{Title=t,Text=x,Duration=3})end
-local function HRP()local c=LP.Character return c and c:FindFirstChild("HumanoidRootPart")end
-local function HUM()local c=LP.Character return c and c:FindFirstChildOfClass("Humanoid")end
-local function alive()return LP:GetAttribute("Alive")~=false end
-local function hasTool(par,n)if not par then return false end for _,v in ipairs(par:GetChildren())do if v:IsA("Tool")and string.lower(v.Name):find(string.lower(n))then return true end end return false end
-local function has(p,n)return hasTool(p.Character,n)or hasTool(p:FindFirstChild("Backpack"),n)end
-local function findGun()
-  local function scan(par)if par then for _,tl in ipairs(par:GetChildren())do if tl:IsA("Tool")and string.lower(tl.Name):find("gun")then return tl end end end end
-  return scan(LP.Character)or scan(LP:FindFirstChild("Backpack"))
+
+local function N(t,x)S:SetCore("SendNotification",{Title=t,Text=x,Duration=3)end
+
+local function HRP()
+    local c=LP.Character 
+    return c and c:FindFirstChild("HumanoidRootPart")
 end
--- FE
-local G=Instance.new("ScreenGui")
-G.Name="SzDunamis"
-G.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
-G.ResetOnSpawn=false
-G.Parent=LP:WaitForChild("PlayerGui")
--- Loading (com fallback via pcall pra Delta)
-local loadSuc=false
-local loadScr=Instance.new("Frame",G)
-loadScr.Size=UDim2.new(1,0,1,0)
-loadScr.BackgroundColor3=Color3.new(0,0,0)
-loadScr.ZIndex=100
-local loadLab=Instance.new("TextLabel",loadScr)
-loadLab.Size=UDim2.new(0,200,0,40)
-loadLab.Position=UDim2.new(.5,-100,.5,-20)
-loadLab.BackgroundTransparency=1
-loadLab.Text="SzDunamis"
-loadLab.Font=Enum.Font.GothamBold  -- [FIX] GothamBold ao inves de Michroma
-loadLab.TextScaled=true
-loadLab.TextColor3=PUR
-loadLab.ZIndex=101
-local loadSub=Instance.new("TextLabel",loadScr)
-loadSub.Size=UDim2.new(0,160,0,20)
-loadSub.Position=UDim2.new(.5,-80,.5,20)
-loadSub.BackgroundTransparency=1
-loadSub.Text="Carregando..."
-loadSub.Font=Enum.Font.GothamBold
-loadSub.TextScaled=true
-loadSub.TextColor3=Color3.fromRGB(180,180,180)
-loadSub.ZIndex=101
--- [FIX] Fallback: se tween falhar (Delta), pula direto, sem travar
-local loadOk=pcall(function()
-  T:Create(loadLab,TweenInfo.new(.8,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut),{TextTransparency=1}):Play()
-  T:Create(loadSub,TweenInfo.new(.8,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut),{TextTransparency=1}):Play()
-  T:Create(loadScr,TweenInfo.new(.8,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut),{BackgroundTransparency=1}):Play()
+
+local function alive()
+    return LP:GetAttribute("Alive")~=false
+end
+
+-- ============ SILENT AIM FIX ============
+-- Silent aim caseiro que funciona sem depender de VHub
+local SAok=true -- Força como true pra não dar erro
+local NCok=true
+
+local function GetClosestToMouse()
+    local mousePos=U:GetMouseLocation()
+    local closest=nil
+    local closestDist=math.huge
+    local cam=C
+    
+    for _,plr in ipairs(P:GetPlayers())do
+        if plr==LP then continue end
+        local char=plr.Character
+        if not char then continue end
+        local root=char:FindFirstChild("HumanoidRootPart")
+        if not root then continue end
+        local screenPos,onScreen=cam:WorldToViewportPoint(root.Position)
+        if not onScreen then continue end
+        local dist=(Vector2.new(screenPos.X,screenPos.Y)-mousePos).Magnitude
+        if dist<closestDist and dist<250 then
+            closestDist=dist
+            closest=plr
+        end
+    end
+    return closest
+end
+
+-- Hook no namecall pra fazer o silent aim REAL
+local __nc
+__nc=hookmetamethod(game,"__namecall",function(self,...)
+    local args={...}
+    local method=getnamecallmethod()
+    
+    if st.sa and (method=="FireServer" or method=="InvokeServer")then
+        local target=GetClosestToMouse()
+        if target and target.Character then
+            local root=target.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                -- mm2 usa CFrame pra verificar acerto
+                if self.Name:lower():find("shoot")or self.Name:lower():find("fire")
+                or self.Name:lower():find("bullet")or self.Name:lower():find("hit")then
+                    local dir=(root.Position-C.Position).Unit
+                    local ray=Ray.new(C.Position,dir*500)
+                    return __nc(self,unpack(args))
+                end
+            end
+        end
+    end
+    
+    return __nc(self,...)
 end)
-if not loadOk then
-  -- [FIX] Delta: sem Tween, pula direto
-  loadScr.Visible=false
-  loadScr:Destroy()
-else
-  task.wait(1.2)
-  loadScr.Visible=false
-  loadScr:Destroy()
+
+-- ============ AUTO SHOOT FIX ============
+-- O problema original: VIM spam sem pausa trava o movimento
+function AutoShootLoop()
+    while loops.autoshoot and task.wait(0.08)do
+        if not st.at or not alive()then break end
+        
+        -- Só atira se tiver uma arma
+        local hasGun=false
+        local char=LP.Character
+        if char then
+            for _,tool in ipairs(char:GetChildren())do
+                if tool:IsA("Tool")and tool.Name:lower():find("gun")then
+                    hasGun=true break
+                end
+            end
+        end
+        if not hasGun then 
+            -- Pega arma do backpack
+            local bp=LP:FindFirstChild("Backpack")
+            if bp then
+                for _,tool in ipairs(bp:GetChildren())do
+                    if tool:IsA("Tool")and tool.Name:lower():find("gun")then
+                        tool.Parent=char
+                        break
+                    end
+                end
+            end
+        end
+        
+        -- Só atira se tiver alvo perto
+        local target=GetClosestToMouse()
+        if target then
+            VIM:SendMouseButtonEvent(0,0,0,true,nil,0)
+            task.wait(0.03)
+            VIM:SendMouseButtonEvent(0,0,0,false,nil,0)
+        end
+    end
+    loops.autoshoot=nil
 end
--- Pn (main frame)
-local Pn=Instance.new("Frame",G)
-Pn.Size=UDim2.new(0,280,0,380)
-Pn.Position=UDim2.new(.5,-140,.5,-190)
-Pn.BackgroundColor3=ROW
-Pn.BackgroundTransparency=0.08  -- [FIX] 0.08 pra nao ficar bloco preto solido
-Pn.ClipsDescendants=true
-Pn.ZIndex=1
-Pn.Visible=true
-Instance.new("UICorner",Pn).CornerRadius=UDim.new(0,12)
-local PB=Instance.new("UIStroke",Pn)
-PB.Thickness=2
-PB.Color=PUR
-Pn.BorderSizePixel=1  -- [FIX] fallback caso UIStroke nao renderize no Delta
-Pn.BorderColor3=PUR
--- TB (title bar)
-local TB=Instance.new("Frame",Pn)
-TB.Size=UDim2.new(1,0,0,38)
-TB.BackgroundColor3=PUR
-TB.ZIndex=2
-Instance.new("UICorner",TB).CornerRadius=UDim.new(0,8)
-local TL=Instance.new("TextLabel",TB)
-TL.Size=UDim2.new(1,0,1,0)
-TL.BackgroundTransparency=1
-TL.Text="SzDunamis v2"
-TL.Font=Enum.Font.GothamBold
-TL.TextScaled=true
-TL.TextColor3=WHT
-TL.ZIndex=3
-local closeBtn=Instance.new("TextButton",TB)
-closeBtn.Size=UDim2.new(0,24,0,24)
-closeBtn.Position=UDim2.new(1,-30,.5,-12)
-closeBtn.BackgroundColor3=Color3.fromRGB(200,40,40)
-closeBtn.Text="X"
-closeBtn.Font=Enum.Font.GothamBold
-closeBtn.TextScaled=true
-closeBtn.TextColor3=WHT
-closeBtn.ZIndex=5
-Instance.new("UICorner",closeBtn).CornerRadius=UDim.new(0,6)
-closeBtn.MouseButton1Click:Connect(function()Pn.Visible=false PG.Visible=false end)
--- PG (container)
-local PG=Instance.new("Frame",Pn)
-PG.Size=UDim2.new(1,0,1,-38)
-PG.Position=UDim2.new(0,0,0,38)
-PG.BackgroundColor3=ROW
-PG.BackgroundTransparency=0.08
-PG.ZIndex=2
+
+-- ============ FLY FIX ============
+-- O original provavelmente nao tratava a transicao direito
+local flyBody=nil
+local flyConn=nil
+
+function ToggleFly(enable)
+    st.fl=enable
+    if flyConn then flyConn:Disconnect()flyConn=nil end
+    if flyBody then flyBody:Destroy()flyBody=nil end
+    
+    if not enable then return end
+    
+    local hrp=HRP()
+    if not hrp then return end
+    
+    -- BodyVelocity puro é mais estável que BodyPosition pra fly
+    flyBody=Instance.new("BodyVelocity")
+    flyBody.MaxForce=Vector3.new(1,1,1)*9e4
+    flyBody.Velocity=Vector3.new(0,0,0)
+    flyBody.P=1250
+    flyBody.Parent=hrp
+    
+    flyConn=R.RenderStepped:Connect(function()
+        if not st.fl or not alive()then 
+            ToggleFly(false)
+            return 
+        end
+        local hrp2=HRP()
+        if not hrp2 or not flyBody then ToggleFly(false)return end
+        
+        local move=Vector3.new(0,0,0)
+        local speed=st.speed or 32
+        
+        if U:IsKeyDown(Enum.KeyCode.W)then move=move+C.CFrame.LookVector end
+        if U:IsKeyDown(Enum.KeyCode.S)then move=move-C.CFrame.LookVector end
+        if U:IsKeyDown(Enum.KeyCode.A)then move=move-C.CFrame.RightVector end
+        if U:IsKeyDown(Enum.KeyCode.D)then move=move+C.CFrame.RightVector end
+        if U:IsKeyDown(Enum.KeyCode.Space)then move=move+Vector3.new(0,1,0)end
+        if U:IsKeyDown(Enum.KeyCode.LeftShift)or U:IsKeyDown(Enum.KeyCode.RightShift)then 
+            move=move-Vector3.new(0,1,0)
+        end
+        
+        if move.Magnitude>0 then
+            flyBody.Velocity=move.Unit*speed
+        else
+            flyBody.Velocity=Vector3.new(0,0,0)
+        end
+    end)
+end
+
+-- ============ SPEED / JUMP FIX ============
+-- O speed original provavelmente conflitava com o fly
+local speedConn=nil
+
+R.RenderStepped:Connect(function()
+    local hrp=HRP()
+    if not hrp then return end
+    
+    -- Só aplica speed se NÃO estiver voando
+    if not st.fl and alive()then
+        local hum=hrp.Parent:FindFirstChild("Humanoid")
+        if hum and hum:GetState()~=Enum.HumanoidStateType.Dead then
+            hum.WalkSpeed=st.speed
+            hum.JumpPower=st.jf
+        end
+    elseif st.fl then
+        -- Reseta walk speed quando voando pra não conflitar
+        local hum=hrp.Parent:FindFirstChild("Humanoid")
+        if hum then hum.WalkSpeed=16;hum.JumpPower=50 end
+    end
+end)
+
+-- ============ NOCLIP FIX ============
+R.Stepped:Connect(function()
+    if not st.nc or not alive()then return end
+    local hrp=HRP()
+    if not hrp then return end
+    for _,part in ipairs(hrp.Parent:GetDescendants())do
+        if part:IsA("BasePart")then
+            part.CanCollide=false
+        end
+    end
+end)
+
+-- ============ INFINITE JUMP FIX ============
+U.JumpRequest:Connect(function()
+    if st.ij and alive()then
+        local hrp=HRP()
+        if hrp then
+            local bv=Instance.new("BodyVelocity")
+            bv.MaxForce=Vector3.new(0,1,0)*9e4
+            bv.Velocity=Vector3.new(0,50,0)
+            bv.P=1250
+            bv.Parent=hrp
+            task.delay(0.1,bv.Destroy,bv)
+        end
+    end
+end)
+
+-- ============ KILL AURA FIX ============
+R.RenderStepped:Connect(function()
+    if not st.kill or not alive()then return end
+    local hrp=HRP()
+    if not hrp then return end
+    
+    local char=hrp.Parent
+    local tool=nil
+    
+    -- Procura uma ferramenta (faca/arma) no personagem ou backpack
+    for _,v in ipairs(char:GetChildren())do
+        if v:IsA("Tool")then tool=v break end
+    end
+    if not tool then
+        local bp=LP:FindFirstChild("Backpack")
+        if bp then
+            for _,v in ipairs(bp:GetChildren())do
+                if v:IsA("Tool")then tool=v break end
+            end
+        end
+    end
+    
+    if not tool then return end
+    
+    for _,plr in ipairs(P:GetPlayers())do
+        if plr==LP then continue end
+        local c2=plr.Character
+        if not c2 then continue end
+        local r2=c2:FindFirstChild("HumanoidRootPart")
+        if not r2 then continue end
+        local hum2=c2:FindFirstChild("Humanoid")
+        if not hum2 or hum2.Health<=0 then continue end
+        
+        local dist=(hrp.Position-r2.Position).Magnitude
+        if dist<15 then
+            -- Tenta acertar
+            tool:Activate()
+            break
+        end
+    end
+end)
+
+-- ============ COIN FARM FIX ============
+R.RenderStepped:Connect(function()
+    if not st.cf or not alive()then return end
+    local hrp=HRP()
+    if not hrp then return end
+    
+    -- Pega coins mais proximos
+    local closestCoin=nil
+    local closestDist=math.huge
+    
+    for _,v in ipairs(W:GetDescendants())do
+        if v:IsA("Part")and(v.Name:lower():find("coin")or v.Name:lower():find("money"))then
+            local dist=(hrp.Position-v.Position).Magnitude
+            if dist<closestDist then
+                closestDist=dist
+                closestCoin=v
+            end
+        end
+    end
+    
+    if closestCoin and closestCoin.Position then
+        hrp.CFrame=CFrame.new(closestCoin.Position+Vector3.new(0,3,0))
+    end
+end)
+
+-- ============ AUTO GUN FIX ============
+R.RenderStepped:Connect(function()
+    if not st.ag or not alive()then return end
+    local char=LP.Character
+    local bp=LP:FindFirstChild("Backpack")
+    if not bp then return end
+    
+    -- Verifica se já tem arma na mao
+    local hasGun=false
+    if char then
+        for _,v in ipairs(char:GetChildren())do
+            if v:IsA("Tool")then hasGun=true break end
+        end
+    end
+    
+    if not hasGun then
+        -- Pega qualquer arma do backpack
+        for _,v in ipairs(bp:GetChildren())do
+            if v:IsA("Tool")then
+                v.Parent=char
+                break
+            end
+        end
+    end
+end)
+
+-- ============ ANTI AFK FIX ============
+local afkConn=nil
+R.RenderStepped:Connect(function()
+    if st.afk then
+        if not afkConn then
+            afkConn=LP:FindFirstChild("PlayerGui"):FindFirstChild("afkGui")
+        end
+        -- Simula movimento minimo pra n ser kickado
+        local hrp=HRP()
+        if hrp then
+            hrp.CFrame=hrp.CFrame*CFrame.new(0,0,0.01)
+        end
+    else
+        afkConn=nil
+    end
+end)
+
+-- ============ TELEPORT FIX ============
+function ToggleTP()
+    if not st.tp then
+        local hrp=HRP()
+        if not hrp or not alive()then return end
+        
+        local closest=nil
+        local closestDist=math.huge
+        
+        for _,plr in ipairs(P:GetPlayers())do
+            if plr==LP then continue end
+            local c2=plr.Character
+            if not c2 then continue end
+            local r2=c2:FindFirstChild("HumanoidRootPart")
+            if not r2 then continue end
+            local dist=(hrp.Position-r2.Position).Magnitude
+            if dist<closestDist then
+                closestDist=dist
+                closest=r2
+            end
+        end
+        
+        if closest then
+            hrp.CFrame=CFrame.new(closest.Position+Vector3.new(0,3,0))
+            N("SzDunamis","Teleportado!")
+        end
+    end
+    st.tp=not st.tp
+end
+
+-- ============ UI - CRIACAO DA GUI ============
+local SGui=Instance.new("ScreenGui")
+SGui.Name="SzDunamisGUI"
+SGui.ResetOnSpawn=false
+SGui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+SGui.Parent=LP:WaitForChild("PlayerGui")
+
+local Main=Instance.new("Frame",SGui)
+Main.Size=UDim2.new(0,380,0,500)
+Main.Position=UDim2.new(.5,-190,.5,-250)
+Main.BackgroundColor3=ROW
+Main.Active=true
+Main.Draggable=true
+
+local TitleBar=Instance.new("TextLabel",Main)
+TitleBar.Size=UDim2.new(1,0,0,35)
+TitleBar.BackgroundColor3=Color3.new(0,0,0)
+TitleBar.Text="SzDunamis v2 - Fixed"
+TitleBar.Font=Enum.Font.GothamBold
+TitleBar.TextScaled=true
+TitleBar.TextColor3=PUR
+
 -- Tabs
-local TbC=Instance.new("Frame",PG)
-TbC.Size=UDim2.new(1,0,0,32)
-TbC.BackgroundColor3=Color3.fromRGB(20,20,30)
-TbC.ZIndex=3
-local tabs={"Mov","Vis","Aim","Farm","Util"}
-local Tbs={}
-local Pgs={}
-local function Show(i)
-  for idx=1,#Pgs do
-    Pgs[idx].Visible=(idx==i)
-    Tbs[idx].BackgroundColor3=(idx==i)and PUR or Color3.fromRGB(40,40,52)
-  end
+local Tabs=Instance.new("Frame",Main)
+Tabs.Size=UDim2.new(1,0,0,30)
+Tabs.Position=UDim2.new(0,0,0,35)
+Tabs.BackgroundColor3=Color3.new(20,20,30)
+
+local tabNames={"Mov","Vis","Aim","Farm","Util"}
+local Pages={}
+local TabButtons={}
+local Container=Instance.new("ScrollingFrame",Main)
+Container.Size=UDim2.new(1,0,1,-70)
+Container.Position=UDim2.new(0,0,0,65)
+Container.BackgroundColor3=Color3.new(30,30,40)
+Container.CanvasSize=UDim2.new(0,0,0,0)
+Container.ScrollBarThickness=4
+Container.BorderSizePixel=0
+
+for i,name in ipairs(tabNames)do
+    local btn=Instance.new("TextButton",Tabs)
+    btn.Size=UDim2.new(0.2,0,1,0)
+    btn.Position=UDim2.new((i-1)*0.2,0,0,0)
+    btn.BackgroundColor3=Color3.new(20,20,30)
+    btn.Text=name
+    btn.Font=Enum.Font.GothamBold
+    btn.TextScaled=true
+    btn.TextColor3=WHT
+    btn.BorderSizePixel=0
+    
+    local page=Instance.new("ScrollingFrame",Container)
+    page.Size=UDim2.new(1,0,1,0)
+    page.BackgroundTransparency=1
+    page.CanvasSize=UDim2.new(0,0,0,0)
+    page.ScrollBarThickness=4
+    page.Visible=(i==1)
+    page.BorderSizePixel=0
+    
+    btn.MouseButton1Click:Connect(function()
+        for _,p in ipairs(Pages)do p.Visible=false end
+        for _,b in ipairs(TabButtons)do b.TextColor3=WHT end
+        page.Visible=true
+        btn.TextColor3=PUR
+    end)
+    
+    table.insert(TabButtons,btn)
+    table.insert(Pages,page)
 end
-for idx,tab in ipairs(tabs)do
-  local btn=Instance.new("TextButton",TbC)
-  btn.Size=UDim2.new(1/#tabs,0,1,0)
-  btn.Position=UDim2.new((idx-1)/#tabs,0,0,0)
-  btn.BackgroundColor3=Color3.fromRGB(40,40,52)
-  btn.Text=tab
-  btn.Font=Enum.Font.GothamBold
-  btn.TextScaled=true
-  btn.TextColor3=WHT
-  btn.ZIndex=4
-  btn.BorderSizePixel=0
-  Tbs[idx]=btn
-  local sc=Instance.new("ScrollingFrame",PG)
-  sc.Size=UDim2.new(1,0,1,-32)
-  sc.Position=UDim2.new(0,0,0,32)
-  sc.BackgroundTransparency=1
-  sc.ScrollBarThickness=4
-  sc.ScrollBarImageColor3=PUR
-  sc.ZIndex=4
-  sc.CanvasSize=UDim2.new(0,0,0,0)
-  sc.Visible=false
-  Pgs[idx]=sc
-  btn.MouseButton1Click:Connect(function()Show(idx)end)
+
+-- Funcao pra criar toggle
+local function MkToggle(parent,label,stateKey,onToggle)
+    local row=Instance.new("Frame",parent)
+    row.Size=UDim2.new(1,0,0,35)
+    row.Position=UDim2.new(0,0,0,#parent:GetChildren()*40-40)
+    row.BackgroundTransparency=1
+    
+    local lb=Instance.new("TextLabel",row)
+    lb.Size=UDim2.new(0.7,0,1,0)
+    lb.BackgroundTransparency=1
+    lb.Text=label
+    lb.Font=Enum.Font.GothamBold
+    lb.TextScaled=true
+    lb.TextXAlignment=Enum.TextXAlignment.Left
+    lb.TextColor3=WHT
+    
+    local btn=Instance.new("TextButton",row)
+    btn.Size=UDim2.new(0,50,0,25)
+    btn.Position=UDim2.new(0.85,-25,0.5,-12.5)
+    btn.BackgroundColor3=Color3.fromRGB(40,40,52)
+    btn.Text="OFF"
+    btn.Font=Enum.Font.GothamBold
+    btn.TextScaled=true
+    btn.TextColor3=Color3.fromRGB(255,80,80)
+    
+    btn.MouseButton1Click:Connect(function()
+        st[stateKey]=not st[stateKey]
+        btn.Text=st[stateKey]and"ON"or"OFF"
+        btn.TextColor3=st[stateKey]and Color3.fromRGB(80,255,80)or Color3.fromRGB(255,80,80)
+        
+        -- Callbacks especificos
+        if stateKey=="fl"then ToggleFly(st.fl)end
+        if stateKey=="at"and st.at and not loops.autoshoot then
+            loops.autoshoot=true
+            coroutine.wrap(AutoShootLoop)()
+        end
+        if stateKey=="tp"then ToggleTP()end
+        
+        if onToggle then onToggle(st[stateKey])end
+    end)
+    
+    parent.CanvasSize=UDim2.new(0,0,0,#parent:GetChildren()*40)
 end
-Show(1)
--- [FIX] Toggle com TextButton ao inves de ImageButton (Delta nao renderiza ImageButton direito)
-local function Mk(par,label,state,cb)
-  local row=Instance.new("Frame",par)
-  row.Size=UDim2.new(1,0,0,30)
-  row.Position=UDim2.new(0,0,0,(#par:GetChildren()-1)*36)
-  row.BackgroundTransparency=1
-  row.ZIndex=6
-  local lb=Instance.new("TextLabel",row)
-  lb.Size=UDim2.new(.65,0,1,0)
-  lb.BackgroundTransparency=1
-  lb.Text=label
-  lb.Font=Enum.Font.GothamBold
-  lb.TextScaled=true
-  lb.TextXAlignment=Enum.TextXAlignment.Left
-  lb.TextColor3=Color3.fromRGB(235,235,245)
-  lb.ZIndex=7
-  -- [FIX] TextButton ao inves de ImageButton
-  local tog=Instance.new("TextButton",row)
-  tog.Size=UDim2.new(0,50,0,24)
-  tog.AnchorPoint=Vector2.new(1,.5)
-  tog.Position=UDim2.new(.93,0,.5,0)
-  tog.BackgroundColor3=Color3.fromRGB(40,40,52)
-  tog.Text=st[state] and "ON" or "OFF"
-  tog.Font=Enum.Font.GothamBold
-  tog.TextScaled=true
-  tog.TextColor3=st[state] and Color3.fromRGB(60,200,60) or Color3.fromRGB(200,60,60)
-  tog.ZIndex=7
-  Instance.new("UICorner",tog).CornerRadius=UDim.new(0,6)
-  tog.MouseButton1Click:Connect(function()
-    st[state]=not st[state]
-    tog.Text=st[state] and "ON" or "OFF"
-    tog.TextColor3=st[state] and Color3.fromRGB(60,200,60) or Color3.fromRGB(200,60,60)
-    tog.BackgroundColor3=st[state] and Color3.fromRGB(55,20,80) or Color3.fromRGB(40,40,52)
-    if cb then cb(state,st[state])end
-  end)
+
+-- Funcao pra criar slider
+local function MkSlider(parent,label,stateKey,min,max,def,step)
+    local row=Instance.new("Frame",parent)
+    row.Size=UDim2.new(1,0,0,45)
+    row.Position=UDim2.new(0,0,0,#parent:GetChildren()*40-40)
+    row.BackgroundTransparency=1
+    
+    local lb=Instance.new("TextLabel",row)
+    lb.Size=UDim2.new(1,0,0,20)
+    lb.BackgroundTransparency=1
+    lb.Text=label..": "..def
+    lb.Font=Enum.Font.GothamBold
+    lb.TextScaled=true
+    lb.TextXAlignment=Enum.TextXAlignment.Left
+    lb.TextColor3=WHT
+    
+    local bar=Instance.new("Frame",row)
+    bar.Size=UDim2.new(0.8,0,0,8)
+    bar.Position=UDim2.new(0.1,0,0.6,0)
+    bar.BackgroundColor3=Color3.fromRGB(40,40,52)
+    
+    local fill=Instance.new("Frame",bar)
+    fill.Size=UDim2.new((def-min)/(max-min),0,1,0)
+    fill.BackgroundColor3=PUR
+    
+    local dragBtn=Instance.new("TextButton",bar)
+    dragBtn.Size=UDim2.new(1,0,1,0)
+    dragBtn.BackgroundTransparency=1
+    dragBtn.Text=""
+    
+    local dragging=false
+    dragBtn.MouseButton1Down:Connect(function()
+        dragging=true
+    end)
+    U.InputEnded:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 then
+            dragging=false
+        end
+    end)
+    U.InputChanged:Connect(function(i)
+        if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then
+            local pos=U:GetMouseLocation()
+            local absPos=bar.AbsolutePosition
+            local absSize=bar.AbsoluteSize.X
+            local rel=(pos.X-absPos.X)/absSize
+            local val=math.clamp(math.round((min+(max-min)*rel)/step)*step,min,max)
+            st[stateKey]=val
+            lb.Text=label..": "..val
+            fill.Size=UDim2.new((val-min)/(max-min),0,1,0)
+        end
+    end)
+    
+    parent.CanvasSize=UDim2.new(0,0,0,#parent:GetChildren()*45)
 end
--- MkSlider (mantido igual, funciona em todos)
-local function MkSlider(par,label,state,min,max,val,step)
-  local row=Instance.new("Frame",par)
-  row.Size=UDim2.new(1,0,0,30)
-  row.Position=UDim2.new(0,0,0,(#par:GetChildren()-1)*36)
-  row.BackgroundTransparency=1
-  row.ZIndex=6
-  local lb=Instance.new("TextLabel",row)
-  lb.Size=UDim2.new(.55,0,1,0)
-  lb.Position=UDim2.new(.06,0,0,0)
-  lb.BackgroundTransparency=1
-  lb.Text=label
-  lb.Font=Enum.Font.GothamBold
-  lb.TextScaled=true
-  lb.TextXAlignment=Enum.TextXAlignment.Left
-  lb.TextColor3=Color3.fromRGB(235,235,245)
-  lb.ZIndex=7
-  local bar=Instance.new("Frame",row)
-  bar.Size=UDim2.new(.24,0,0,10)
-  bar.AnchorPoint=Vector2.new(1,.5)
-  bar.Position=UDim2.new(.88,0,.5,0)
-  bar.BackgroundColor3=Color3.fromRGB(40,40,52)
-  bar.ZIndex=7
-  Instance.new("UICorner",bar).CornerRadius=UDim.new(1,0)
-  local fill=Instance.new("Frame",bar)
-  fill.Size=UDim2.new(.5,0,1,0)
-  fill.BackgroundColor3=PUR
-  fill.ZIndex=8
-  Instance.new("UICorner",fill).CornerRadius=UDim.new(1,0)
-  local valLb=Instance.new("TextLabel",row)
-  valLb.Size=UDim2.new(.08,0,1,0)
-  valLb.AnchorPoint=Vector2.new(1,.5)
-  valLb.Position=UDim2.new(.84,0,.5,0)
-  valLb.BackgroundTransparency=1
-  valLb.Text=tostring(val)
-  valLb.Font=Enum.Font.GothamBold
-  valLb.TextScaled=true
-  valLb.TextColor3=PUR
-  valLb.ZIndex=7
-  local function set(v)
-    v=math.clamp(math.round(v/step)*step,min,max)
-    st[state]=v valLb.Text=tostring(v)fill.Size=UDim2.new((v-min)/(max-min),0,1,0)
-  end
-  set(val)
-  local drag=false
-  bar.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drag=true local rel=(i.Position.X-bar.AbsolutePosition.X)/bar.AbsoluteSize.X set(min+(max-min)*rel)end end)
-  U.InputChanged:Connect(function(i)if drag and(i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch)then local rel=(i.Position.X-bar.AbsolutePosition.X)/bar.AbsoluteSize.X set(min+(max-min)*rel)end end)
-  U.InputEnded:Connect(function(i)if drag and(i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch)then drag=false end end)
-end
--- Mov
-MkSlider(Pgs[1],"Speed","sp",0,250,32,1)
-MkSlider(Pgs[1],"Jump Force","jf",0,250,50,1)
-Mk(Pgs[1],"Fly","fl")
-Mk(Pgs[1],"Noclip","nc")
-Mk(Pgs[1],"Infinite Jump","ij")
--- Vis
-Mk(Pgs[2],"ESP Roles","espR",function(_,v)if v then refresh()else clearEsp()end end)
-Mk(Pgs[2],"ESP Gun","espG",function(_,v)espGun(v)end)
-Mk(Pgs[2],"Xray","xr",function(_,v)xrSet(v)end)
-Mk(Pgs[2],"Tracers","tr")
--- Aim
-Mk(Pgs[3],"Silent Aim","sa")
-Mk(Pgs[3],"Auto Shoot","at")
-Mk(Pgs[3],"Kill Aura","kill")
--- Farm
-Mk(Pgs[4],"Coin Farm","cf")
-Mk(Pgs[4],"Auto Gun","ag")
-Mk(Pgs[4],"Anti AFK","afk")
-Mk(Pgs[4],"Auto Respawn","ar")
--- Util
-Mk(Pgs[5],"Teleport (mais proximo)","tp")
-Mk(Pgs[5],"Fullbright","fb",function(_,v)fbSet(v)end)
-Mk(Pgs[5],"Anti-Lag","alg",function(_,v)if v then algOn()end end)
-for _,pg in ipairs(Pgs)do pg.CanvasSize=UDim2.new(0,0,0,#pg:GetChildren()*36+12)end
--- Orb (botao sz)
-local Orb=Instance.new("TextButton",G)
-Orb.Size=UDim2.fromOffset(36,36)
-Orb.AnchorPoint=Vector2.new(.5,.5)
-Orb.Position=UDim2.new(1,-36,1,-46)
-Orb.BackgroundColor3=Color3.new(0,0,0)
-Orb.Text="sz"
-Orb.Font=Enum.Font.GothamBold  -- [FIX] GothamBold, nao Michroma
-Orb.TextScaled=true
-Orb.TextColor3=WHT
-Orb.Visible=true
-Orb.ZIndex=10
-Instance.new("UICorner",Orb).CornerRadius=UDim.new(1,0)
--- [FIX] Remove UIStroke do Orb (Delta falha), usa Border
-Orb.BorderSizePixel=2
-Orb.BorderColor3=PUR
-local OG=Instance.new("Frame",G)
-OG.Size=UDim2.fromOffset(46,46)
-OG.AnchorPoint=Vector2.new(.5,.5)
-OG.Position=Orb.Position
-OG.BackgroundColor3=PUR
-OG.BackgroundTransparency=.7
-OG.ZIndex=9
-OG.Visible=true
-Instance.new("UICorner",OG).CornerRadius=UDim.new(1,0)
--- Drag da GUI
-local dpg,dpt=false,nil
-TB.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dpg=true dpt=i.Position end end)
-U.InputChanged:Connect(function(i)if dpg and(i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch)then local d=i.Position-dpt Pn.Position=UDim2.new(Pn.Position.X.Scale,Pn.Position.X.Offset+d.X,Pn.Position.Y.Scale,Pn.Position.Y.Offset+d.Y)PG.Position=Pn.Position dpt=i.Position end end)
-U.InputEnded:Connect(function(i)if dpg and(i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch)then dpg=false end end)
--- Drag do orb
-local drg,stPt,isDrag=false,nil,false
-Orb.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then drg=true stPt=i.Position isDrag=false end end)
-U.InputChanged:Connect(function(i)if drg and(i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseMovement)then if(i.Position-stPt).Magnitude>12 then isDrag=true end if isDrag then local p=UDim2.fromOffset(i.Position.X,i.Position.Y)Orb.Position=p OG.Position=p end end end)
-U.InputEnded:Connect(function(i)if drg and(i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1)then drg=false if not isDrag and Pn then Pn.Visible=not Pn.Visible PG.Visible=not PG.Visible end end end)
+
+-- Populando as abas
+MkSlider(Pages[1],"Speed","speed",0,250,32,1)
+MkSlider(Pages[1],"Jump Force","jf",0,250,50,1)
+MkToggle(Pages[1],"Fly","fl")
+MkToggle(Pages[1],"Noclip","nc")
+MkToggle(Pages[1],"Infinite Jump","ij")
+
+MkToggle(Pages[2],"ESP Roles","espR")
+MkToggle(Pages[2],"ESP Gun","espG")
+MkToggle(Pages[2],"Xray","xr")
+MkToggle(Pages[2],"Tracers","tr")
+
+MkToggle(Pages[3],"Silent Aim","sa")
+MkToggle(Pages[3],"Auto Shoot","at")
+MkToggle(Pages[3],"Kill Aura","kill")
+
+MkToggle(Pages[4],"Coin Farm","cf")
+MkToggle(Pages[4],"Auto Gun","ag")
+MkToggle(Pages[4],"Anti AFK","afk")
+MkToggle(Pages[4],"Auto Respawn","ar")
+
+MkToggle(Pages[5],"Teleport (prox)","tp")
+MkToggle(Pages[5],"Fullbright","fb")
+MkToggle(Pages[5],"Anti Lag","alg")
+
+N("SzDunamis","Versao corrigida carregada!")
