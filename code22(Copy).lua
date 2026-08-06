@@ -26,7 +26,8 @@ local PUR=Color3.fromRGB(150,20,255)
 local ROW=Color3.fromRGB(26,26,36)
 local WHT=Color3.new(1,1,1)
 
-local function N(t,x)S:SetCore("SendNotification",{Title=t,Text=x,Duration=3)end
+-- ============ LINHA CORRIGIDA ============
+local function N(t,x) S:SetCore("SendNotification",{Title=t,Text=x,Duration=3}) end
 
 local function HRP()
     local c=LP.Character 
@@ -37,9 +38,8 @@ local function alive()
     return LP:GetAttribute("Alive")~=false
 end
 
--- ============ SILENT AIM FIX ============
--- Silent aim caseiro que funciona sem depender de VHub
-local SAok=true -- Força como true pra não dar erro
+-- ============ SILENT AIM ============
+local SAok=true
 local NCok=true
 
 local function GetClosestToMouse()
@@ -65,7 +65,7 @@ local function GetClosestToMouse()
     return closest
 end
 
--- Hook no namecall pra fazer o silent aim REAL
+-- Hook no namecall pro silent aim
 local __nc
 __nc=hookmetamethod(game,"__namecall",function(self,...)
     local args={...}
@@ -76,11 +76,8 @@ __nc=hookmetamethod(game,"__namecall",function(self,...)
         if target and target.Character then
             local root=target.Character:FindFirstChild("HumanoidRootPart")
             if root then
-                -- mm2 usa CFrame pra verificar acerto
                 if self.Name:lower():find("shoot")or self.Name:lower():find("fire")
                 or self.Name:lower():find("bullet")or self.Name:lower():find("hit")then
-                    local dir=(root.Position-C.Position).Unit
-                    local ray=Ray.new(C.Position,dir*500)
                     return __nc(self,unpack(args))
                 end
             end
@@ -90,13 +87,11 @@ __nc=hookmetamethod(game,"__namecall",function(self,...)
     return __nc(self,...)
 end)
 
--- ============ AUTO SHOOT FIX ============
--- O problema original: VIM spam sem pausa trava o movimento
+-- ============ AUTO SHOOT ============
 function AutoShootLoop()
     while loops.autoshoot and task.wait(0.08)do
         if not st.at or not alive()then break end
         
-        -- Só atira se tiver uma arma
         local hasGun=false
         local char=LP.Character
         if char then
@@ -107,7 +102,6 @@ function AutoShootLoop()
             end
         end
         if not hasGun then 
-            -- Pega arma do backpack
             local bp=LP:FindFirstChild("Backpack")
             if bp then
                 for _,tool in ipairs(bp:GetChildren())do
@@ -119,7 +113,6 @@ function AutoShootLoop()
             end
         end
         
-        -- Só atira se tiver alvo perto
         local target=GetClosestToMouse()
         if target then
             VIM:SendMouseButtonEvent(0,0,0,true,nil,0)
@@ -130,8 +123,7 @@ function AutoShootLoop()
     loops.autoshoot=nil
 end
 
--- ============ FLY FIX ============
--- O original provavelmente nao tratava a transicao direito
+-- ============ FLY ============
 local flyBody=nil
 local flyConn=nil
 
@@ -145,7 +137,6 @@ function ToggleFly(enable)
     local hrp=HRP()
     if not hrp then return end
     
-    -- BodyVelocity puro é mais estável que BodyPosition pra fly
     flyBody=Instance.new("BodyVelocity")
     flyBody.MaxForce=Vector3.new(1,1,1)*9e4
     flyBody.Velocity=Vector3.new(0,0,0)
@@ -180,15 +171,11 @@ function ToggleFly(enable)
     end)
 end
 
--- ============ SPEED / JUMP FIX ============
--- O speed original provavelmente conflitava com o fly
-local speedConn=nil
-
+-- ============ SPEED / JUMP ============
 R.RenderStepped:Connect(function()
     local hrp=HRP()
     if not hrp then return end
     
-    -- Só aplica speed se NÃO estiver voando
     if not st.fl and alive()then
         local hum=hrp.Parent:FindFirstChild("Humanoid")
         if hum and hum:GetState()~=Enum.HumanoidStateType.Dead then
@@ -196,13 +183,12 @@ R.RenderStepped:Connect(function()
             hum.JumpPower=st.jf
         end
     elseif st.fl then
-        -- Reseta walk speed quando voando pra não conflitar
         local hum=hrp.Parent:FindFirstChild("Humanoid")
         if hum then hum.WalkSpeed=16;hum.JumpPower=50 end
     end
 end)
 
--- ============ NOCLIP FIX ============
+-- ============ NOCLIP ============
 R.Stepped:Connect(function()
     if not st.nc or not alive()then return end
     local hrp=HRP()
@@ -214,7 +200,7 @@ R.Stepped:Connect(function()
     end
 end)
 
--- ============ INFINITE JUMP FIX ============
+-- ============ INFINITE JUMP ============
 U.JumpRequest:Connect(function()
     if st.ij and alive()then
         local hrp=HRP()
@@ -229,7 +215,7 @@ U.JumpRequest:Connect(function()
     end
 end)
 
--- ============ KILL AURA FIX ============
+-- ============ KILL AURA ============
 R.RenderStepped:Connect(function()
     if not st.kill or not alive()then return end
     local hrp=HRP()
@@ -238,7 +224,6 @@ R.RenderStepped:Connect(function()
     local char=hrp.Parent
     local tool=nil
     
-    -- Procura uma ferramenta (faca/arma) no personagem ou backpack
     for _,v in ipairs(char:GetChildren())do
         if v:IsA("Tool")then tool=v break end
     end
@@ -264,20 +249,18 @@ R.RenderStepped:Connect(function()
         
         local dist=(hrp.Position-r2.Position).Magnitude
         if dist<15 then
-            -- Tenta acertar
             tool:Activate()
             break
         end
     end
 end)
 
--- ============ COIN FARM FIX ============
+-- ============ COIN FARM ============
 R.RenderStepped:Connect(function()
     if not st.cf or not alive()then return end
     local hrp=HRP()
     if not hrp then return end
     
-    -- Pega coins mais proximos
     local closestCoin=nil
     local closestDist=math.huge
     
@@ -296,14 +279,13 @@ R.RenderStepped:Connect(function()
     end
 end)
 
--- ============ AUTO GUN FIX ============
+-- ============ AUTO GUN ============
 R.RenderStepped:Connect(function()
     if not st.ag or not alive()then return end
     local char=LP.Character
     local bp=LP:FindFirstChild("Backpack")
     if not bp then return end
     
-    -- Verifica se já tem arma na mao
     local hasGun=false
     if char then
         for _,v in ipairs(char:GetChildren())do
@@ -312,7 +294,6 @@ R.RenderStepped:Connect(function()
     end
     
     if not hasGun then
-        -- Pega qualquer arma do backpack
         for _,v in ipairs(bp:GetChildren())do
             if v:IsA("Tool")then
                 v.Parent=char
@@ -322,14 +303,13 @@ R.RenderStepped:Connect(function()
     end
 end)
 
--- ============ ANTI AFK FIX ============
+-- ============ ANTI AFK ============
 local afkConn=nil
 R.RenderStepped:Connect(function()
     if st.afk then
         if not afkConn then
             afkConn=LP:FindFirstChild("PlayerGui"):FindFirstChild("afkGui")
         end
-        -- Simula movimento minimo pra n ser kickado
         local hrp=HRP()
         if hrp then
             hrp.CFrame=hrp.CFrame*CFrame.new(0,0,0.01)
@@ -339,7 +319,7 @@ R.RenderStepped:Connect(function()
     end
 end)
 
--- ============ TELEPORT FIX ============
+-- ============ TELEPORT ============
 function ToggleTP()
     if not st.tp then
         local hrp=HRP()
@@ -369,7 +349,7 @@ function ToggleTP()
     st.tp=not st.tp
 end
 
--- ============ UI - CRIACAO DA GUI ============
+-- ============ CRIACAO DA GUI ============
 local SGui=Instance.new("ScreenGui")
 SGui.Name="SzDunamisGUI"
 SGui.ResetOnSpawn=false
@@ -391,7 +371,6 @@ TitleBar.Font=Enum.Font.GothamBold
 TitleBar.TextScaled=true
 TitleBar.TextColor3=PUR
 
--- Tabs
 local Tabs=Instance.new("Frame",Main)
 Tabs.Size=UDim2.new(1,0,0,30)
 Tabs.Position=UDim2.new(0,0,0,35)
@@ -468,7 +447,6 @@ local function MkToggle(parent,label,stateKey,onToggle)
         btn.Text=st[stateKey]and"ON"or"OFF"
         btn.TextColor3=st[stateKey]and Color3.fromRGB(80,255,80)or Color3.fromRGB(255,80,80)
         
-        -- Callbacks especificos
         if stateKey=="fl"then ToggleFly(st.fl)end
         if stateKey=="at"and st.at and not loops.autoshoot then
             loops.autoshoot=true
