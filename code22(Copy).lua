@@ -6,7 +6,7 @@ if getgenv().SZDUN then return end getgenv().SZDUN=true
 if not((game.PlaceId==142823291)or(game.GameId==66654135))then S:SetCore("SendNotification",{Title="SzDunamis",Text="Jogo nao suportado",Duration=3})return end
 local IMG="rbxassetid://112169216"
 local st={sp=false,fl=false,nc=false,espR=false,espG=false,xr=false,sa=false,at=false,kill=false,cf=false,ag=false,afk=false,
-          ij=false,tr=false,ar=false,fb=false,alg=false,tp=false,speed=32,jf=50}
+          ij=false,tr=false,ar=false,fb=false,alg=false,tp=false,speed=32,jf=6} -- >>> FIX: jf agora é JumpHeight (studs)
 local PUR=Color3.fromRGB(150,20,255)local ROW=Color3.fromRGB(26,26,36)local WHT=Color3.new(1,1,1)
 local function N(t,x)S:SetCore("SendNotification",{Title=t,Text=x,Duration=3})end
 local function HRP()local c=LP.Character return c and c:FindFirstChild("HumanoidRootPart")end
@@ -19,85 +19,7 @@ local function tgtA()local hrp=HRP()if not hrp then return nil end local b,d=nil
 local function getMurder()for _,p in ipairs(P:GetPlayers())do if p~=LP and has(p,"Knife")then return p end end return nil end
 local function getMurderHRP()local m=getMurder()return m and m.Character and m.Character:FindFirstChild("HumanoidRootPart")end
 
--- ============ SILENT AIM (Averiias style) ============
-local function getClosestSA()
-    if not st.sa then return nil end
-    local hrp=HRP() if not hrp then return nil end
-    local b,d=nil,math.huge
-    for _,p in ipairs(P:GetPlayers())do
-        if p~=LP then
-            local c=p.Character
-            local t=c and c:FindFirstChild("HumanoidRootPart")
-            if t and t.Parent then
-                local q=(t.Position-hrp.Position).Magnitude
-                if q<d then d,b=q,t end
-            end
-        end
-    end
-    return b
-end
-
-local oldNC
-oldNC=hookmetamethod(game,"__namecall",newcclosure(function(...)
-    local args={...}
-    local self=args[1]
-    local method=getnamecallmethod()
-    if st.sa and not checkcaller() and self==workspace then
-        local target=getClosestSA()
-        if target then
-            if method=="FindPartOnRayWithIgnoreList" or method=="FindPartOnRay" or method=="findPartOnRay" then
-                local ray=args[2]
-                if ray and typeof(ray)=="Ray" then
-                    args[2]=Ray.new(ray.Origin,(target.Position-ray.Origin).Unit*1000)
-                    return oldNC(unpack(args))
-                end
-            elseif method=="Raycast" then
-                local origin=args[2]
-                if origin and typeof(origin)=="Vector3" then
-                    args[3]=(target.Position-origin).Unit*1000
-                    return oldNC(unpack(args))
-                end
-            end
-        end
-    end
-    return oldNC(unpack(args))
-end))
-
-local M=LP:GetMouse()
-local oldIdx
-oldIdx=hookmetamethod(game,"__index",newcclosure(function(s,k)
-    if st.sa and not checkcaller() and rawequal(s,M) then
-        local target=getClosestSA()
-        if target then
-            if k=="Target"or k=="target"then return target end
-            if k=="Hit"or k=="hit"then return target.CFrame+target.Velocity*.165 end
-            if k=="UnitRay"or k=="Origin"then
-                local o=C.CFrame.Position
-                return Ray.new(o,(target.Position-o).Unit)
-            end
-        end
-    end
-    return oldIdx(s,k)
-end))
-
-local keys={}
-local FLYKEYS={[Enum.KeyCode.W]=true,[Enum.KeyCode.A]=true,[Enum.KeyCode.S]=true,[Enum.KeyCode.D]=true,[Enum.KeyCode.Space]=true,[Enum.KeyCode.LeftShift]=true}
-U.InputBegan:Connect(function(i)if FLYKEYS[i.KeyCode]then keys[i.KeyCode]=true end end)
-U.InputEnded:Connect(function(i)if FLYKEYS[i.KeyCode]then keys[i.KeyCode]=nil end end)
-local jumpKey=false
-U.InputBegan:Connect(function(i)if i.KeyCode==Enum.KeyCode.Space then jumpKey=true end end)
-U.InputEnded:Connect(function(i)if i.KeyCode==Enum.KeyCode.Space then jumpKey=false end end)
-local tags={}
-local function clear()for _,g in ipairs(tags)do pcall(function()g:Destroy()end)end tags={}end
-local function tag(p,txt,col,nm,dist)local h=p.Character and p.Character:FindFirstChild("Head")if not h then return end local b=Instance.new("BillboardGui",h)b.Name="SZESP"b.Size=UDim2.new(0,130,0,28)b.AlwaysOnTop=true b.MaxDistance=700 b.StudsOffset=Vector3.new(0,3,0)local l=Instance.new("TextLabel",b)l.Size=UDim2.new(1,0,1,0)l.BackgroundTransparency=1 l.Font=Enum.Font.GothamBold l.TextScaled=true l.Text=txt..(nm and" | "..p.Name or"")..(dist and(" | "..dist.."m")or"")l.TextColor3=col l.TextStrokeTransparency=.2 tags[#tags+1]=b end
-local function refresh()clear()local hrp=HRP()for _,p in ipairs(P:GetPlayers())do if p~=LP and p.Character then local h=p.Character:FindFirstChild("Head")local dist=hrp and h and math.floor((h.Position-hrp.Position).Magnitude+.5)or nil if has(p,"Knife")then tag(p,"ASSASSINO",Color3.fromRGB(255,70,70),true,dist)elseif has(p,"Gun")then tag(p,"XERIFE",Color3.fromRGB(70,160,255),true,dist)else tag(p,p.Name,Color3.fromRGB(0,220,120),false,dist)end end end end
-local gunTag
-local function espGun(v)if gunTag then pcall(function()gunTag:Destroy()end)gunTag=nil end if not v then return end local g=W:FindFirstChild("GunDrop",true)if not g then return end local part=g:IsA("BasePart")and g or g.PrimaryPart or g:FindFirstChildWhichIsA("BasePart")if part then local b=Instance.new("BillboardGui",part)b.Name="SZGUN"b.Size=UDim2.new(0,100,0,24)b.AlwaysOnTop=true b.StudsOffset=Vector3.new(0,1,0)local l=Instance.new("TextLabel",b)l.Size=UDim2.new(1,0,1,0)l.BackgroundTransparency=1 l.Font=Enum.Font.GothamBold l.TextScaled=true l.Text="ARMA"l.TextColor3=Color3.fromRGB(255,200,60)l.TextStrokeTransparency=.2 gunTag=b end end
-local tracers={}
-local function clearTracers()for _,t in ipairs(tracers)do pcall(function()t:Remove()end)end tracers={}end
-local function drawTracers()if not st.tr then clearTracers()return end if #tracers==0 then for i=1,#P:GetPlayers()-1 do local d=Drawing.new("Line")d.Thickness=1.5 d.Color=PUR d.Visible=true tracers[i]=d end end local i=0 for _,p in ipairs(P:GetPlayers())do if p~=LP and p.Character then local h=p.Character:FindFirstChild("Head")if h then i=i+1 local scr,onn=C:WorldToViewportPoint(h.Position)local d=tracers[i]if d then d.Visible=onn d.From=Vector2.new(C.ViewportSize.X/2,C.ViewportSize.Y)d.To=Vector2.new(scr.X,scr.Y)end end end end for j=i+1,#tracers do tracers[j].Visible=false end end
-
--- ============ AUTO SHOOT VIA REMOTE REAL (ManaV2 style) ============
+-- ============ SHOOT REMOTE (movido pra cima, o hook do SA precisa dele) ============
 local function getShootRemote()
     local g=findGun()
     if not g then return nil end
@@ -108,27 +30,68 @@ local function getShootRemote()
     return cb:FindFirstChild("RemoteFunction")
 end
 
-task.spawn(function()local t1,t2,t3,t4=0,0,0,0 local lastAt=0 local lastEquip=0
-    -- Variaveis do Auto Farm estilo ManaV2
-    local farmCoins={}
-    local farmCollected={}
-    
+-- ============ SILENT AIM VIA REMOTE >>> FIX (dano é validado no servidor) ============
+local oldNC
+oldNC=hookmetamethod(game,"__namecall",newcclosure(function(...)
+    local args={...}
+    local self=args[1]
+    local method=getnamecallmethod()
+    if st.sa and not checkcaller() and method=="InvokeServer" then
+        local gun=findGun()
+        local remote=gun and getShootRemote()
+        if remote and rawequal(self,remote) and typeof(args[2])=="Vector3" then
+            local mhrp=getMurderHRP()
+            if mhrp and mhrp.Parent then
+                local hrp=HRP()
+                local vel=mhrp.AssemblyLinearVelocity or mhrp.Velocity or Vector3.zero
+                local dist=(mhrp.Position-(hrp and hrp.Position or args[2])).Magnitude
+                local t=math.clamp(dist/300,0.05,0.8) -- tempo de voo da bala
+                args[2]=mhrp.Position+vel*t
+                return oldNC(unpack(args))
+            end
+        end
+    end
+    return oldNC(unpack(args))
+end))
+
+local keys={}
+local FLYKEYS={[Enum.KeyCode.W]=true,[Enum.KeyCode.A]=true,[Enum.KeyCode.S]=true,[Enum.KeyCode.D]=true,[Enum.KeyCode.Space]=true,[Enum.KeyCode.LeftShift]=true}
+U.InputBegan:Connect(function(i)if FLYKEYS[i.KeyCode]then keys[i.KeyCode]=true end end)
+U.InputEnded:Connect(function(i)if FLYKEYS[i.KeyCode]then keys[i.KeyCode]=nil end end)
+local tags={}
+local function clear()for _,g in ipairs(tags)do pcall(function()g:Destroy()end)end tags={}end
+local function tag(p,txt,col,nm,dist)local h=p.Character and p.Character:FindFirstChild("Head")if not h then return end local b=Instance.new("BillboardGui",h)b.Name="SZESP"b.Size=UDim2.new(0,130,0,28)b.AlwaysOnTop=true b.MaxDistance=700 b.StudsOffset=Vector3.new(0,3,0)local l=Instance.new("TextLabel",b)l.Size=UDim2.new(1,0,1,0)l.BackgroundTransparency=1 l.Font=Enum.Font.GothamBold l.TextScaled=true l.Text=txt..(nm and" | "..p.Name or"")..(dist and(" | "..dist.."m")or"")l.TextColor3=col l.TextStrokeTransparency=.2 tags[#tags+1]=b end
+local function refresh()clear()local hrp=HRP()for _,p in ipairs(P:GetPlayers())do if p~=LP and p.Character then local h=p.Character:FindFirstChild("Head")local dist=hrp and h and math.floor((h.Position-hrp.Position).Magnitude+.5)or nil if has(p,"Knife")then tag(p,"ASSASSINO",Color3.fromRGB(255,70,70),true,dist)elseif has(p,"Gun")then tag(p,"XERIFE",Color3.fromRGB(70,160,255),true,dist)else tag(p,p.Name,Color3.fromRGB(0,220,120),false,dist)end end end end
+local gunTag
+local function espGun(v)if gunTag then pcall(function()gunTag:Destroy()end)gunTag=nil end if not v then return end local g=W:FindFirstChild("GunDrop",true)if not g then return end local part=g:IsA("BasePart")and g or g.PrimaryPart or g:FindFirstChildWhichIsA("BasePart")if part then local b=Instance.new("BillboardGui",part)b.Name="SZGUN"b.Size=UDim2.new(0,100,0,24)b.AlwaysOnTop=true b.StudsOffset=Vector3.new(0,1,0)local l=Instance.new("TextLabel",b)l.Size=UDim2.new(1,0,1,0)l.BackgroundTransparency=1 l.Font=Enum.Font.GothamBold l.TextScaled=true l.Text="ARMA"l.TextColor3=Color3.fromRGB(255,200,60)l.TextStrokeTransparency=.2 gunTag=b end end
+local tracers={}
+local function clearTracers()for _,t in ipairs(tracers)do pcall(function()t:Remove()end)end tracers={}end
+local function drawTracers()if not st.tr then clearTracers()return end if #tracers==0 then for i=1,#P:GetPlayers()-1 do local d=Drawing.new("Line")d.Thickness=1.5 d.Color=PUR d.Visible=true tracers[i]=d end end local i=0 for _,p in ipairs(P:GetPlayers())do if p~=LP and p.Character then local h=p.Character:FindFirstChild("Head")if h then i=i+1 local scr,onn=C:WorldToViewportPoint(h.Position)local d=tracers[i]if d then d.Visible=onn d.From=Vector2.new(C.ViewportSize.X/2,C.ViewportSize.Y)d.To=Vector2.new(scr.X,scr.Y)end end end end for j=i+1,#tracers do tracers[j].Visible=false end end
+
+task.spawn(function()
+    local t1,t2,t3,t4=0,0,0,0 local lastAt=0 local lastEquip=0
+    -- >>> FIX: estado do fly e do farm
+    local flyVel=Vector3.zero local flyOn=false
+    local farmCollected={} local farming=false
+
     while true do local dt=task.wait()local c=LP.Character local hrp=HRP()local hum=c and c:FindFirstChildOfClass("Humanoid")
-        -- Speed fix
-        if hum then if not st.fl then hum.WalkSpeed=st.speed or 32 end if st.jf then hum.JumpPower=st.jf end end
-        if st.ij and hum then if jumpKey and not hum.Jumping then pcall(function()hum:ChangeState(Enum.HumanoidStateType.Jumping)end)end end
-        -- Fly fix (CFrame)
+        -- Speed fix >>> FIX: JumpPower -> JumpHeight
+        if hum then if not st.fl then hum.WalkSpeed=st.speed or 32 end if st.jf then hum.JumpHeight=st.jf end end
+        -- >>> FIX: Fly (CFrame normalizado + lerp, PlatformStand sem conflito com farm)
         if st.fl and hrp then
             local f=(keys[Enum.KeyCode.W] and 1 or 0)-(keys[Enum.KeyCode.S] and 1 or 0)
             local r=(keys[Enum.KeyCode.D] and 1 or 0)-(keys[Enum.KeyCode.A] and 1 or 0)
             local u=(keys[Enum.KeyCode.Space] and 1 or 0)-(keys[Enum.KeyCode.LeftShift] and 1 or 0)
-            if hum then hum:ChangeState(Enum.HumanoidStateType.Physics)hum.PlatformStand=true end
-            hrp.CFrame = hrp.CFrame + (C.CFrame.LookVector*f + C.CFrame.RightVector*r + Vector3.new(0,u,0)) * st.speed * dt
-            hrp.Velocity = Vector3.zero hrp.RotVelocity = Vector3.zero
+            local dir=C.CFrame.LookVector*f+C.CFrame.RightVector*r+Vector3.new(0,u,0)
+            if dir.Magnitude>1 then dir=dir.Unit end
+            if hum then hum.PlatformStand=true end
+            flyVel=flyVel:Lerp(dir*(st.speed or 32),0.35)
+            hrp.CFrame=hrp.CFrame+flyVel*dt
+            hrp.Velocity=Vector3.zero hrp.RotVelocity=Vector3.zero
+            flyOn=true
         elseif hrp then
             local bv=hrp:FindFirstChild("SZBV")if bv then bv:Destroy()end
-            -- So desativa PlatformStand se nao tiver farm ligado
-            if hum and not st.cf then hum.PlatformStand=false end
+            if hum and flyOn then hum.PlatformStand=false flyOn=false end
         end
         local ncOn=(st.nc or st.cf)if ncOn and c then for _,v in ipairs(c:GetDescendants())do if v:IsA("BasePart")then v.CanCollide=false end end end
         t1=t1+dt if t1>.5 then t1=0
@@ -140,53 +103,60 @@ task.spawn(function()local t1,t2,t3,t4=0,0,0,0 local lastAt=0 local lastEquip=0
             if st.ar and not alive()then local resp=getR("Respawn")or getR("PlayerDied")or getR("Died")if resp then pcall(function()resp:InvokeServer()end)end end
         end
         t4=t4+dt if t4>=1 then t4=0 if st.espR then refresh()else clear()end if st.espG and not(gunTag and gunTag.Parent)then espGun(true)end end
-        
-        -- AUTO SHOOT via remote real (ManaV2 style)
+
+        -- >>> FIX: AUTO SHOOT (predição com tempo de voo + linha de visão)
         if st.at then
             local murder=getMurder()
             local mhrp=murder and murder.Character and murder.Character:FindFirstChild("HumanoidRootPart")
             local g=findGun()
             local remote=getShootRemote()
-            if g and murder and mhrp and remote and alive() then
+            if g and murder and mhrp and remote and alive() and hrp then
                 if g.Parent~=c then
                     local h=c and c:FindFirstChildOfClass("Humanoid")
                     if h then h:EquipTool(g) end
                     lastEquip=os.clock()+.15
                 end
                 if os.clock()>lastEquip and os.clock()-lastAt>.5 then
-                    -- Predicao de movimento
-                    local vel=mhrp.Velocity
-                    local predPos=mhrp.Position+vel*dt
-                    local suc,er=pcall(function()
-                        remote:InvokeServer(1,predPos,"AH2")
-                    end)
+                    local vel=mhrp.AssemblyLinearVelocity or mhrp.Velocity or Vector3.zero
+                    local dist=(mhrp.Position-hrp.Position).Magnitude
+                    local flight=math.clamp(dist/300,0.05,0.8)
+                    local predPos=mhrp.Position+vel*flight
+                    local clear=true
+                    local gOrigin=g:FindFirstChild("Handle")
+                    local o=gOrigin and gOrigin.Position or hrp.Position
+                    local params=RaycastParams.new()
+                    params.FilterType=Enum.RaycastFilterType.Exclude
+                    params.FilterDescendantsInstances={c,murder.Character}
+                    if W:Raycast(o,(predPos-o),params) then clear=false end
+                    if clear then
+                        pcall(function() remote:InvokeServer(1,predPos,"AH2") end)
+                    end
                     lastAt=os.clock()
                 end
             end
         end
-        
-        -- KILL AURA
+
+        -- KILL AURA (inalterado)
         if st.kill then local k=c and c:FindFirstChild("Knife")local hd=tgt()if hrp and k and hd and hd.Parent then local r=hd.Parent:FindFirstChild("HumanoidRootPart")if r then r.CFrame=hrp.CFrame+hrp.CFrame.LookVector*4 end local hp=k:FindFirstChild("Handle")if hp then for _,v in ipairs(hd.Parent:GetDescendants())do if v:IsA("BasePart")and v:FindFirstChild("TouchInterest")then firetouchinterest(hp,v,0)firetouchinterest(hp,v,1)end end end k:Activate()end end
-        
-        -- AUTO GUN
+
+        -- AUTO GUN (inalterado)
         t2=t2+dt if st.ag and t2>.6 then t2=0 local g=W:FindFirstChild("GunDrop",true)local part=g and(g:IsA("BasePart")and g or g.PrimaryPart or g:FindFirstChildWhichIsA("BasePart"))if alive()and part and hrp then hrp.CFrame=part.CFrame*CFrame.new(0,0,2)task.wait(.08)for _,v in ipairs(g:GetDescendants())do if v:IsA("BasePart")and v:FindFirstChild("TouchInterest")then firetouchinterest(hrp,v,0)firetouchinterest(hrp,v,1)end end end end
-        
-        -- ANTI AFK
+
+        -- ANTI AFK (inalterado)
         t3=t3+dt if st.afk and t3>30 then t3=0 pcall(function()mousemoverel(0,2)end)end
-        
-        -- ============ AUTO FARM (ManaV2 style — loop simples sem PlatformStand) ============
+
+        -- >>> FIX: AUTO FARM (filtro CoinVisual.Transparency==0 + tween sem restart)
         if st.cf and hrp and alive() then
-            -- So procura moedas a cada 0.3s
             t3=t3+dt
-            if t3>0.3 then
+            if not farming and t3>0.3 then
                 t3=0
                 local box=W:FindFirstChild("CoinContainer",true)
                 if box then
-                    local nearest=nil
-                    local nearDist=math.huge
+                    local nearest,nearDist=nil,math.huge
                     for _,cn in ipairs(box:GetChildren())do
-                        if cn:GetAttribute("CoinID")=="Coin" and cn:FindFirstChild("TouchInterest") and cn.Transparency==1 then
-                            if not farmCollected[cn] then
+                        if cn:GetAttribute("CoinID")=="Coin" and cn:FindFirstChild("TouchInterest") and not farmCollected[cn] then
+                            local vis=cn:FindFirstChild("CoinVisual") or cn:FindFirstChildWhichIsA("BasePart")
+                            if vis and vis.Transparency==0 then
                                 local d=(cn.Position-hrp.Position).Magnitude
                                 if d<nearDist then nearDist=d nearest=cn end
                             end
@@ -194,16 +164,24 @@ task.spawn(function()local t1,t2,t3,t4=0,0,0,0 local lastAt=0 local lastEquip=0
                     end
                     if nearest then
                         if nearDist>5 then
-                            -- Tween ate a moeda
-                            local tw=T:Create(hrp,TweenInfo.new(math.clamp(nearDist/30,0.1,4),Enum.EasingStyle.Linear),{
-                                CFrame=CFrame.new(nearest.Position-Vector3.new(0,2.5,0))*CFrame.Angles(math.rad(90),0,0)
+                            local dur=math.clamp(nearDist/30,0.1,4)
+                            farming=true
+                            local tw=T:Create(hrp,TweenInfo.new(dur,Enum.EasingStyle.Linear),{
+                                CFrame=CFrame.new(nearest.Position-Vector3.new(0,2.5,0))
                             })
                             tw:Play()
-                            task.delay(math.clamp(nearDist/30,0.1,4)+0.5,function()
-                                farmCollected[nearest]=true
+                            tw.Completed:Connect(function()
+                                farming=false
+                                if nearest and nearest.Parent and alive() then
+                                    local hh=HRP()
+                                    if hh and (nearest.Position-hh.Position).Magnitude<8 then
+                                        firetouchinterest(hh,nearest,0)
+                                        firetouchinterest(hh,nearest,1)
+                                    end
+                                    farmCollected[nearest]=true
+                                end
                             end)
                         else
-                            -- Toca a moeda
                             firetouchinterest(hrp,nearest,0)
                             firetouchinterest(hrp,nearest,1)
                             farmCollected[nearest]=true
@@ -211,9 +189,9 @@ task.spawn(function()local t1,t2,t3,t4=0,0,0,0 local lastAt=0 local lastEquip=0
                     end
                 end
             end
-            -- Limpa collected quando muda de round
         elseif not st.cf then
             farmCollected={}
+            farming=false
         end
     end
 end)
@@ -224,6 +202,22 @@ local function getR(n)local rm=RS:FindFirstChild("Remotes")local gp=rm and rm:Fi
 local RE=getR("RoundEndFade")if RE then RE.OnClientEvent:Connect(function()farmCollected={}end)end
 
 LP.CharacterAdded:Connect(function()task.wait(.5)clear()end)
+
+-- ============ INFINITE JUMP VIA JumpRequest >>> FIX ============
+local ijConn,ijDeb=nil,false
+local function setInfJump(on)
+    if ijConn then ijConn:Disconnect() ijConn=nil end
+    if not on then return end
+    ijConn=U.JumpRequest:Connect(function()
+        local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+        if hum and not ijDeb then
+            ijDeb=true
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+            task.wait()
+            ijDeb=false
+        end
+    end)
+end
 
 -- ============ GUI ============
 local G=Instance.new("ScreenGui")G.Name="SzDunamisUI"G.ResetOnSpawn=false G.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
@@ -250,7 +244,11 @@ local Ct=Instance.new("Frame",Pn)Ct.Position=UDim2.new(0,126,0,52)Ct.Size=UDim2.
 for i=1,#Tabs do local pg=Instance.new("ScrollingFrame",Ct)pg.Size=UDim2.new(1,0,1,0)pg.BackgroundTransparency=1 pg.ZIndex=3 pg.ScrollingDirection=Enum.ScrollingDirection.Y pg.ScrollBarThickness=3 pg.ScrollBarImageColor3=PUR pg.CanvasSize=UDim2.new(0,0,0,0)Pgs[i]=pg end
 local function Mk(pg,label,state,fn)local i=#pg:GetChildren()+1 local row=Instance.new("Frame",pg)row.Size=UDim2.new(1,0,0,96)row.Position=UDim2.new(0,0,0,6+(i-1)*102)row.BackgroundColor3=ROW Instance.new("UICorner",row).CornerRadius=UDim.new(0,10)local lb=Instance.new("TextLabel",row)lb.Size=UDim2.new(.52,0,1,0)lb.Position=UDim2.new(.06,0,0,0)lb.BackgroundTransparency=1 lb.Text=label lb.Font=Enum.Font.GothamBold lb.TextScaled=true lb.TextXAlignment=Enum.TextXAlignment.Left lb.TextColor3=Color3.fromRGB(235,235,245)lb.ZIndex=2 local gl=Instance.new("Frame",row)gl.Size=UDim2.fromOffset(86,46)gl.AnchorPoint=Vector2.new(1,.5)gl.Position=UDim2.new(.95,0,.5,0)gl.BackgroundColor3=PUR gl.BackgroundTransparency=.85 gl.ZIndex=1 gl.Visible=false Instance.new("UICorner",gl).CornerRadius=UDim.new(1,0)local sw=Instance.new("TextButton",row)sw.Size=UDim2.fromOffset(74,34)sw.AnchorPoint=Vector2.new(1,.5)sw.Position=UDim2.new(.95,0,.5,0)sw.BackgroundColor3=Color3.fromRGB(24,24,32)sw.Text=""sw.ZIndex=2 Instance.new("UICorner",sw).CornerRadius=UDim.new(1,0)local ss=Instance.new("UIStroke",sw)ss.Thickness=1.5 ss.Color=Color3.fromRGB(60,60,80)local kb=Instance.new("TextButton",sw)kb.Size=UDim2.fromOffset(28,28)kb.AnchorPoint=Vector2.new(0,.5)kb.Position=UDim2.new(0,3,.5,0)kb.BackgroundColor3=Color3.fromRGB(230,230,240)kb.Text=""kb.ZIndex=3 Instance.new("UICorner",kb).CornerRadius=UDim.new(1,0)local on=Instance.new("TextLabel",sw)on.Size=UDim2.new(.5,0,1,0)on.BackgroundTransparency=1 on.Text="ON"on.Font=Enum.Font.GothamBold on.TextScaled=true on.TextColor3=WHT on.Visible=false on.ZIndex=3 local off=Instance.new("TextLabel",sw)off.Size=UDim2.new(.5,0,1,0)off.Position=UDim2.new(.5,0,0,0)off.BackgroundTransparency=1 off.Text="OFF"off.Font=Enum.Font.GothamBold off.TextScaled=true off.TextColor3=Color3.fromRGB(120,120,145)off.ZIndex=3 local function set(v)st[state]=v T:Create(kb,TweenInfo.new(.22,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=v and UDim2.new(0,43,.5,0)or UDim2.new(0,3,.5,0)}):Play()T:Create(sw,TweenInfo.new(.22),{BackgroundColor3=v and PUR or Color3.fromRGB(24,24,32)}):Play()T:Create(ss,TweenInfo.new(.22),{Color=v and PUR or Color3.fromRGB(60,60,80)}):Play()on.Visible=v off.Visible=not v gl.Visible=v if v then T:Create(gl,TweenInfo.new(.3,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{BackgroundTransparency=.5}):Play()end if fn then fn(state,v)end end sw.MouseButton1Click:Connect(function()set(not st[state])end)end
 local function MkSlider(pg,label,state,min,max,val,step)local i=#pg:GetChildren()+1 local row=Instance.new("Frame",pg)row.Size=UDim2.new(1,0,0,96)row.Position=UDim2.new(0,0,0,6+(i-1)*102)row.BackgroundColor3=ROW Instance.new("UICorner",row).CornerRadius=UDim.new(0,10)local lb=Instance.new("TextLabel",row)lb.Size=UDim2.new(.6,0,1,0)lb.Position=UDim2.new(.06,0,0,0)lb.BackgroundTransparency=1 lb.Text=label lb.Font=Enum.Font.GothamBold lb.TextScaled=true lb.TextXAlignment=Enum.TextXAlignment.Left lb.TextColor3=Color3.fromRGB(235,235,245)lb.ZIndex=2 local bar=Instance.new("Frame",row)bar.Size=UDim2.new(.24,0,0,10)bar.AnchorPoint=Vector2.new(1,.5)bar.Position=UDim2.new(.88,0,.5,0)bar.BackgroundColor3=Color3.fromRGB(40,40,52)bar.ZIndex=2 Instance.new("UICorner",bar).CornerRadius=UDim.new(1,0)local fill=Instance.new("Frame",bar)fill.Size=UDim2.new(.5,0,1,0)fill.BackgroundColor3=PUR fill.ZIndex=3 Instance.new("UICorner",fill).CornerRadius=UDim.new(1,0)local valLb=Instance.new("TextLabel",row)valLb.Size=UDim2.new(.08,0,1,0)valLb.AnchorPoint=Vector2.new(1,.5)valLb.Position=UDim2.new(.84,0,.5,0)valLb.BackgroundTransparency=1 valLb.Text=tostring(val)valLb.Font=Enum.Font.GothamBold valLb.TextScaled=true valLb.TextColor3=PUR valLb.ZIndex=2 local set set=function(v)v=math.clamp(math.round(v/step)*step,min,max)st[state]=v valLb.Text=tostring(v)fill.Size=UDim2.new((v-min)/(max-min),0,1,0)end set(val)local drag=false bar.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drag=true local rel=(i.Position.X-bar.AbsolutePosition.X)/bar.AbsoluteSize.X set(min+(max-min)*rel)end end)U.InputChanged:Connect(function(i)if drag and(i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch)then local rel=(i.Position.X-bar.AbsolutePosition.X)/bar.AbsoluteSize.X set(min+(max-min)*rel)end end)U.InputEnded:Connect(function(i)if drag and(i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch)then drag=false end end)end
-MkSlider(Pgs[1],"Speed","speed",0,250,32,1)MkSlider(Pgs[1],"Jump Force","jf",0,250,50,1)Mk(Pgs[1],"Fly","fl")Mk(Pgs[1],"Noclip","nc")Mk(Pgs[1],"Infinite Jump","ij")
+MkSlider(Pgs[1],"Speed","speed",0,250,32,1)
+MkSlider(Pgs[1],"Jump Height","jf",0,60,6,1) -- >>> FIX: JumpHeight em studs
+Mk(Pgs[1],"Fly","fl")
+Mk(Pgs[1],"Noclip","nc")
+Mk(Pgs[1],"Infinite Jump","ij",function(_,v)setInfJump(v)end) -- >>> FIX: liga/desliga via JumpRequest
 Mk(Pgs[2],"ESP Roles","espR",function(_,v)if v then refresh()else clear()end end)Mk(Pgs[2],"ESP Gun","espG",function(_,v)espGun(v)end)Mk(Pgs[2],"Xray","xr")Mk(Pgs[2],"Tracers","tr")
 Mk(Pgs[3],"Silent Aim","sa")Mk(Pgs[3],"Auto Shoot","at")Mk(Pgs[3],"Kill Aura","kill")
 Mk(Pgs[4],"Coin Farm","cf")Mk(Pgs[4],"Auto Gun","ag")Mk(Pgs[4],"Anti AFK","afk")Mk(Pgs[4],"Auto Respawn","ar")
